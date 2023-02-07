@@ -1,0 +1,15 @@
+{{- if .Values.persistence.pdName -}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.persistence.pdName }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.storageSize }}
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  claimRef:
+    name: {{ .Values.name  }}-volume
+{{- end }}

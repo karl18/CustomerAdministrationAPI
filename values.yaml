@@ -1,0 +1,198 @@
+affinity:
+  enabled: false
+  nodes: []
+appConfig:
+  url: https://dev-app-config-we-001.azconfig.io
+autoscaling:
+  behavior:
+    data: null
+    enabled: false
+  enabled: false
+  external:
+    enabled: false
+  maxReplicas: 5
+  minReplicas: 2
+  targetCPUUtilizationPercentage: 85
+  targetMemoryUtilizationPercentage: 85
+configmap:
+  data: []
+  enabled: false
+cronjob:
+  DDLogs: false
+  DDmetrics: false
+  affinity:
+    enabled: false
+    nodes: []
+  backoffLimit: 3
+  crons: null
+  enabled: false
+  failedJobsHistoryLimit: 1
+  parallelism: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 384Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  restartPolicy: Never
+  successfulJobsHistoryLimit: 1
+  tolerations:
+    enabled: false
+deploy:
+  env:
+  - CORECLR_ENABLE_PROFILING: 1
+deployment:
+  enabled: true
+  env:
+  - DD_ENV: development
+  env_fieldref: null
+  maxSurge: 2
+  maxUnavailable: 1
+  minReadySeconds: 10
+  replicaCount: 2
+  strategy: RollingUpdate
+environment: Development
+identity:
+  enabled: false
+image:
+  name: services/customeradministration-api
+  registryURL: flaschenpost.azurecr.io
+  tag: sre-1169-6820320
+ingress:
+  enabled: true
+  hosts:
+    paths: []
+  ingressHost: null
+  main_domain: dev.private.flaschen.io
+  privateIngress:
+    annotations:
+      kubernetes.io/ingress.class: nginx-internal
+      nginx.ingress.kubernetes.io/auth-tls-verify-client: 'off'
+      nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    enabled: true
+  publicIngress:
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/auth-tls-secret: ingress-nginx/cloudflare-origin-ca
+      nginx.ingress.kubernetes.io/auth-tls-verify-client: 'on'
+      nginx.ingress.kubernetes.io/auth-tls-verify-depth: '1'
+      nginx.ingress.kubernetes.io/enable-access-log: 'true'
+    enabled: false
+liveness:
+  http: disabled
+  lhprobe:
+    failureThreshold: 5
+    httpGet:
+      path: /hc
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  ltprobe:
+    failureThreshold: 5
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    tcpSocket:
+      port: http
+    timeoutSeconds: 10
+  rhprobe:
+    failureThreshold: 2
+    httpGet:
+      path: /hc
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  rtprobe:
+    failureThreshold: 2
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    tcpSocket:
+      port: http
+    timeoutSeconds: 10
+  tcp: enabled
+name: customeradministration-api-sre-1169-feature
+persistence:
+  accessMode: ReadWriteOnce
+  enabled: false
+  mountPath: /data
+  storageClass: managed-premium
+  storageSize: 10Gi
+pod:
+  DDlogs: true
+  DDmetrics: false
+  annotations: {}
+  containerPort: 80
+  containerPortName: http
+  metricsEndpoint: metrics
+  metricsPort: 80
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+prehook:
+  configmap:
+    data: []
+    enabled: false
+  hooksecret:
+    data: []
+    enabled: false
+  identity:
+    enabled: false
+  job:
+    DDLogs: false
+    DDmetrics: false
+    affinity:
+      enabled: false
+      nodes: []
+    annotations:
+      linkerd.io/inject: disabled
+    backoffLimit: 3
+    crons: null
+    enabled: false
+    identity:
+      enabled: false
+    parallelism: 1
+    restartPolicy: Never
+    tolerations:
+      effect: NoSchedule
+      enabled: false
+      key: pod
+      operator: Equal
+      value: null
+replicaCount: 2
+secret:
+  data: []
+  enabled: false
+secretMount:
+  data: []
+  enabled: false
+service:
+  enabled: true
+  port: 80
+  type: ClusterIP
+statefulSet:
+  enabled: false
+  env: null
+  env_fieldref: null
+  replicaCount: 1
+  updateStrategy: RollingUpdate
+tolerations:
+  effect: NoSchedule
+  enabled: false
+  key: pod
+  operator: Equal
+  value: null
+volumeAzure:
+  enabled: false
+volumeMount:
+  enabled: false
+  readOnly: false

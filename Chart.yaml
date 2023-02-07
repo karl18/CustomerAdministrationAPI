@@ -1,0 +1,6 @@
+apiVersion: v2
+description: Preset chart to deploy customeradministration-api-sre-1169-feature in
+  environment development
+name: customeradministration-api-sre-1169-feature-development
+type: application
+version: 0.1.11-sre-1169.28

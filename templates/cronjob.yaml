@@ -1,0 +1,124 @@
+{{- if $.Values.cronjob.enabled -}}
+{{- range $job := $.Values.cronjob.crons }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $job.name | lower }}
+  labels: {{- include "common.labels" $ | nindent 4}}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  successfulJobsHistoryLimit: {{ $.Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $.Values.cronjob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      parallelism: {{ $.Values.cronjob.parallelism }}
+      backoffLimit: {{ $.Values.cronjob.backoffLimit }}
+      template:
+        metadata:
+          annotations:
+            {{- if $.Values.cronjob.DDmetrics }}
+            {{- include "pod.annotations.DDmetrics" $ | nindent 12 }}
+            {{- end }}
+            {{- if $.Values.cronjob.DDlogs }}
+            {{- include "pod.annotations.DDlogs" $ | nindent 12 }}
+            {{- end }}
+          labels:
+            {{- include "common.labels" $ | nindent 12 }}
+            {{- if $.Values.identity.enabled }}
+            aadpodidbinding: {{ $.Values.name | quote }}
+            {{- end }}
+        spec:
+          {{- if and $.Values.cronjob.affinity.enabled $.Values.cronjob.affinity.nodes}}
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                    {{- range $k, $v := $.Values.cronjob.affinity.nodes }}
+                    {{- range $kk, $vv := $v }}
+                    - key: "{{ $kk }}"
+                      values: ["{{ $vv }}"]
+                      operator: In
+                    {{- end }}
+                    {{- end }}
+          {{- end }}
+          {{- if $.Values.cronjob.tolerations.enabled }}
+          tolerations:
+            - key: {{ $.Values.cronjob.tolerations.key | quote }}
+              operator: {{ $.Values.cronjob.tolerations.operator | quote }}
+              value: {{ $.Values.cronjob.tolerations.value | quote }}
+              effect: {{ $.Values.cronjob.tolerations.effect | quote }}
+          {{- end }}
+          restartPolicy: {{$.Values.cronjob.restartPolicy}}
+          {{- /* //FIXME should me merged with $.Values.volumeMount.enabled */}}
+          {{- if $.Values.volumeAzure.enabled }}
+          volumes:
+            - name: {{ $.Values.name }}-azurefile
+              azureFile:
+                secretName: {{$.Values.name }}-secret
+                shareName: {{ $.Values.volume.name | quote }}
+                readOnly: {{ $.Values.volume.readOnly}}
+          {{- end }}
+          {{- if and $.Values.volumeMount.enabled $.Values.volumeMount.path}}
+          volumes:
+            - name: {{ $.Values.name | quote }}
+              {{- if and $.Values.volumeMount.enabled $.Values.volumeMount.secret }}
+              secret:
+                secretName: {{ $.Values.name }}-secret-mount
+              {{- end }}
+          {{- end }}
+          containers:
+          - name: {{ $job.name | lower }}-cronjob
+            image: "{{ $.Values.image.registryURL}}/{{ $.Values.image.name }}:{{ $.Values.image.tag }}"
+            imagePullPolicy: Always
+            command: {{ $job.command }}
+            args: {{ $job.args }}
+           {{- if $.Values.volumeAzure.enabled }}
+            volumeMounts:
+              - mountPath: {{ $.Values.volumeMount.path | quote }}
+                name: {{ $.Values.name }}-azurefile
+                readOnly:  {{ $.Values.volume.readOnly}}
+            {{- end }}
+            {{- if and $.Values.volumeMount.enabled $.Values.volumeMount.path }}
+            volumeMounts:
+              - mountPath: {{ $.Values.volumeMount.path | quote }}
+                name: {{ $.Values.name | quote }}
+                readOnly:  {{ $.Values.volume.readOnly}}
+            {{- end }}
+            env:
+            {{- include "common.environment" $ | nindent 14 }}
+            {{- if $.Values.deployment.env }}
+              {{- range $k, $v := $.Values.deployment.env }}
+              {{- range $kk, $vv := $v }}
+              - name: "{{ $kk }}"
+                value: "{{ $vv }}"
+              {{- end }}
+              {{- end }}
+            {{- end }}
+            {{- if and $.Values.secret.enabled $.Values.secret.data }}
+              {{- range $k, $v := $.Values.secret.data }}
+              {{- range $kk, $vv := $v }}
+              - name: "{{ $kk }}"
+                valueFrom:
+                  secretKeyRef:
+                    name: "{{ $.Values.name }}-secret"
+                    key: "{{ $kk }}"
+              {{- end }}
+              {{- end }}
+            {{- end }}
+            {{- if and $.Values.configmap.enabled $.Values.configmap.data }}
+              {{- range $k, $v := $.Values.configmap.data }}
+              {{- range $kk, $vv := $v }}
+              - name: "{{ $kk }}"
+                valueFrom:
+                  configMapKeyRef:
+                    name: "{{ $.Values.name }}"
+                    key: "{{ $kk }}"
+              {{- end }}
+              {{- end }}
+            {{- end }}
+            resources:
+{{ toYaml $.Values.cronjob.resources | indent 14 }}
+{{- end }}
+{{- end }}

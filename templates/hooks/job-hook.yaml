@@ -1,0 +1,92 @@
+{{- if $.Values.prehook.job.enabled }}
+{{- range $job := $.Values.prehook.job.crons }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $job.name}}-hook-job
+  annotations:
+    {{- include "hook.annotations" $ | nindent 4 }}
+    helm.sh/hook-weight: "-1"
+spec:
+  parallelism: {{ $.Values.prehook.job.parallelism }}
+  backoffLimit: {{ $.Values.prehook.job.backoffLimit }}
+  template:
+    metadata:
+      annotations:
+            {{- if $.Values.prehook.job.DDmetrics }}
+            {{- include "pod.annotations.DDmetrics" $ | nindent 12 }}
+            {{- end }}
+            {{- if $.Values.prehook.job.DDLogs }}
+            {{- include "pod.annotations.DDlogs" $ | nindent 12 }}
+            {{- end }}
+      labels:
+        {{- include "common.labels" $ | nindent 8 }}
+        {{- if $.Values.prehook.identity.enabled }}
+        aadpodidbinding: {{ $.Values.name | quote }}
+        {{- end }}
+    spec:
+      {{- if and $.Values.prehook.job.affinity.enabled $.Values.prehook.job.affinity.nodes}}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                  {{- range $k, $v := $.Values.prehook.job.affinity.nodes }}
+                  {{- range $kk, $vv := $v }}
+                  - key: "{{ $kk }}"
+                    values: ["{{ $vv }}"]
+                    operator: In
+                  {{- end }}
+                  {{- end }}
+      {{- end }}
+      {{- if $.Values.prehook.job.tolerations.enabled }}
+      tolerations:
+        - key: {{ $.Values.prehook.job.tolerations.key | quote }}
+          operator: {{ $.Values.prehook.job.tolerations.operator | quote }}
+          value: {{ $.Values.prehook.job.tolerations.value | quote }}
+          effect: {{ $.Values.prehook.job.tolerations.effect | quote }}
+      {{- end }}
+      restartPolicy: {{$.Values.prehook.job.restartPolicy}}
+      containers:
+      - name: {{ $job.name | lower }}-hook-job
+        image: "{{ $.Values.image.registryURL}}/{{ $.Values.image.name }}:{{ $.Values.image.tag }}"
+        imagePullPolicy: Always
+        command: {{ $job.command }}
+        args: {{ $job.args }}
+        resources:
+{{ toYaml $.Values.prehook.job.resources | indent 12 }}
+        env:
+        {{- include "common.environment" $ | nindent 10 }}
+        {{- if $.Values.deployment.env }}
+          {{- range $k, $v := $.Values.deployment.env }}
+          {{- range $kk, $vv := $v }}
+          - name: "{{ $kk }}"
+            value: "{{ $vv }}"
+          {{- end }}
+          {{- end }}
+        {{- end }}
+        {{- if and $.Values.prehook.hooksecret.enabled $.Values.prehook.hooksecret.data }}
+          {{- range $k, $v := $.Values.hooksecret.data }}
+          {{- range $kk, $vv := $v }}
+          - name: "{{ $kk }}"
+            valueFrom:
+              secretKeyRef:
+                name: "{{$.Values.name}}-hook-secret"
+                key: "{{ $kk }}"
+          {{- end }}
+          {{- end }}
+        {{- end}}
+        {{- if and $.Values.prehook.configmap.enabled $.Values.prehook.configmap.data }}
+          {{- range $k, $v := $.Values.prehook.configmap.data }}
+          {{- range $kk, $vv := $v }}
+          - name: "{{ $kk }}"
+            valueFrom:
+              configMapKeyRef:
+                name: "{{ $.Values.name }}-hook"
+                key: "{{ $kk }}"
+          {{- end }}
+          {{- end }}
+        {{- end }}
+{{- end }}
+{{- end }}

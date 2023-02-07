@@ -1,0 +1,15 @@
+{{- if .Values.prehook.identity.enabled }}
+apiVersion: aadpodidentity.k8s.io/v1
+kind: AzureIdentity
+metadata:
+  name: {{ .Values.name }}-hook
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+  annotations:
+    {{- include "hook.annotations" . | nindent 4 }}
+    helm.sh/hook-weight: "-5"
+spec:
+  clientID: {{ .Values.prehook.identity.clientID }}
+  resourceID: {{ .Values.prehook.identity.resourceID }}
+  type: 0
+{{ end }}

@@ -1,0 +1,16 @@
+{{- if and .Values.prehook.configmap.enabled .Values.prehook.configmap.data -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Values.name}}-hook-configmap
+  labels: {{- include "common.labels" . | nindent 4}}
+  annotations:
+    {{- include "hook.annotations" . | nindent 4 }}
+    helm.sh/hook-weight: "-2"
+data:
+  {{- range $k, $v := .Values.prehook.configmap.data }}
+  {{- range $kk, $vv := $v }}
+  {{ $kk }}: {{ $vv }}
+  {{- end }}
+  {{- end }}
+{{- end }}

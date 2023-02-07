@@ -1,0 +1,12 @@
+{{- if .Values.identity.enabled }}
+apiVersion: aadpodidentity.k8s.io/v1
+kind: AzureIdentity
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  clientID: {{ .Values.identity.clientID }}
+  resourceID: {{ .Values.identity.resourceID }}
+  type: 0
+{{ end }}

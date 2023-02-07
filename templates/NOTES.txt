@@ -1,0 +1,59 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+Deployed version is {{ .Chart.Version  }}.
+
+{{- if .Values.ingress.enabled }}
+
+Service URL: https://{{ .Values.name }}.{{ .Values.ingress.main_domain }}
+{{- end }}
+
+Installed Componentes:
+{{- if and .Values.statefulSet.enabled (not .Values.deployment.enabled) }}
+    - StatefulSet: {{ .Values.name }}
+{{- end }}
+
+{{- if and .Values.deployment.enabled  (not .Values.statefulSet.enabled) }}
+    - Deployment: {{ .Values.name }}
+{{- end }}
+
+{{- if .Values.identity.enabled }}
+    - Azure Identity: {{ .Values.name }}
+{{- end }}
+
+{{- if .Values.identity.enabled }}
+    - Azure Identity Binding:  {{ .Values.name }}-binding
+{{- end }}
+
+{{- if and .Values.configmap.enabled .Values.configmap.data }}
+    - ConfigMap: {{.Values.name}}
+{{- end }}
+
+{{- if .Values.cronjob.enabled }}
+{{- range $job := $.Values.cronjob.crons }}
+    - Cronjob: {{ $job.name | lower }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.autoscaling.enabled }}
+    - HPA: {{ .Values.name }}
+{{- end }}
+
+{{- if .Values.persistence.pdName }}
+    - Persistent Volume: {{ .Values.persistence.pdName }}
+{{- end }}
+
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+    - Persistent Volume Claim: {{ .Values.name }}-volume
+{{- end }}
+
+{{- if and .Values.secretMount.enabled .Values.secretMount.data }}
+    - Mounted Secret: {{.Values.name}}-secret-mount
+{{- end }}
+
+{{- if and .Values.secret.enabled .Values.secret.data }}
+    - Secret: {{.Values.name}}-secret
+{{- end }}
+    - Service: {{ .Values.name }}
+    - Service Account: {{ .Values.name }}

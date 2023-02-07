@@ -1,0 +1,70 @@
+{{- if and .Values.deployment.enabled .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.name | quote }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.name | quote }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  {{- if and .Values.autoscaling.behavior.enabled .Values.autoscaling.behavior.data }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: {{ .Values.autoscaling.behavior.data.scaleDown.stabilizationWindowSeconds }}
+      policies:
+{{ toYaml .Values.autoscaling.behavior.data.scaleDown.policies | indent 6 }}
+    scaleUp:
+      stabilizationWindowSeconds: {{ .Values.autoscaling.behavior.data.scaleUp.stabilizationWindowSeconds }}
+      policies:
+{{ toYaml .Values.autoscaling.behavior.data.scaleUp.policies | indent 6 }}
+      selectPolicy: {{ .Values.autoscaling.behavior.data.scaleUp.selectPolicy }}
+  {{- end }}
+  metrics:
+    {{- if and .Values.autoscaling.targetCPUUtilizationPercentage (not (.Values.autoscaling.external.enabled)) }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if and .Values.autoscaling.targetMemoryUtilizationPercentage (not (.Values.autoscaling.external.enabled)) }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.autoscaling.external.enabled }}
+    {{- if .Values.autoscaling.external.targetDatadogMetric.targetValue }}
+    - type: External
+      external:
+        metric:
+          name: "datadogmetric@{{ .Release.Namespace }}:{{ .Values.autoscaling.external.targetDatadogMetric.metricName }}" #"datadogmetric@<namespace>:<datadogmetric_name>"
+          selector:
+            matchLabels:
+{{ toYaml .Values.autoscaling.external.targetDatadogMetric.matchLabels | indent 14 }}
+        target:
+          type: Value
+          value: {{ .Values.autoscaling.external.targetDatadogMetric.targetValue }}
+    {{- end }}
+    {{- if .Values.autoscaling.external.targetDatadogMetric.targetAverageValue }}
+    - type: External
+      external:
+        metric:
+          name: "datadogmetric@{{ .Release.Namespace }}:{{ .Values.autoscaling.external.targetDatadogMetric.metricName }}"
+          selector:
+            matchLabels:
+{{ toYaml .Values.autoscaling.external.targetDatadogMetric.matchLabels | indent 14 }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.autoscaling.external.targetDatadogMetric.targetAverageValue }}
+    {{- end }}
+    {{- end }}
+{{- end }}

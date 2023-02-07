@@ -1,0 +1,54 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.name | quote }}
+  labels:
+  {{- include "common.labels" . | nindent 4 }}
+  annotations:
+  {{- if and .Values.ingress.privateIngress.enabled (not (.Values.ingress.publicIngress.enabled)) }}
+    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.name }}.{{ .Values.ingress.main_domain }}"
+  {{- if  .Values.ingress.privateIngress.annotations }}
+   {{- range $key, $value := .Values.ingress.privateIngress.annotations }}
+    {{ $key}}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if and  .Values.ingress.publicIngress.enabled (not (.Values.ingress.privateIngress.enabled)) }}
+   {{- if .Values.ingress.publicIngress.annotations }}
+   {{- range $key, $value := .Values.ingress.publicIngress.annotations }}
+    {{ $key}}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+spec:
+  tls: 
+{{- if hasSuffix "-feature" .Values.name }}
+    - hosts:
+      - {{ .Values.name }}.{{ .Values.ingress.main_domain }}
+{{- else if .Values.ingress.ingressHost }}
+    - hosts:
+      - {{ .Values.ingress.ingressHost }}.{{ .Values.ingress.main_domain }}
+{{- else }}
+    - hosts:
+      - {{ .Values.name }}.{{ .Values.ingress.main_domain }}
+{{- end }}
+  rules:
+{{- if hasSuffix "-feature" .Values.name }}
+    - host: {{ .Values.name }}.{{ .Values.ingress.main_domain }}
+{{- else if .Values.ingress.ingressHost }}
+    - host: {{ .Values.ingress.ingressHost }}.{{ .Values.ingress.main_domain }}
+{{- else }}
+    - host: {{ .Values.name }}.{{ .Values.ingress.main_domain }}
+{{- end }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.name }}
+                port:
+                  number: {{ .Values.service.port }}
+
+{{- end }}

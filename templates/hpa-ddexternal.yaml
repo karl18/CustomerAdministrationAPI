@@ -1,0 +1,10 @@
+{{- if and .Values.autoscaling.enabled .Values.autoscaling.external.enabled}}
+apiVersion: datadoghq.com/v1alpha1
+kind: DatadogMetric
+metadata:
+  name: {{ .Values.autoscaling.external.targetDatadogMetric.metricName }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  query: {{ .Values.autoscaling.external.targetDatadogMetric.query }}
+{{- end }}

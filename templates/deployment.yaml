@@ -1,0 +1,164 @@
+{{- if and .Values.deployment.enabled  (not .Values.statefulSet.enabled) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name | quote }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  minReadySeconds: {{ .Values.deployment.minReadySeconds }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.deployment.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "selector.labels" . | nindent 6 }}
+  strategy:
+    type: {{ .Values.deployment.strategy }}
+    {{- if eq .Values.deployment.strategy "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.maxSurge }}
+      maxUnavailable: {{ .Values.deployment.maxUnavailable }}
+    {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.pod.DDmetrics }}
+        {{- include "pod.annotations.DDmetrics" . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.pod.DDLogs }}
+        {{- include "pod.annotations.DDlogs" . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "common.labels" . | nindent 8 }}
+        {{- if .Values.identity.enabled }}
+        aadpodidbinding: {{ .Values.name | quote }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.name | quote }}
+      {{- if and .Values.affinity.enabled .Values.affinity.nodes}}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                {{- range $k, $v := .Values.affinity.nodes }}
+                {{- range $kk, $vv := $v }}
+                - key: "{{ $kk }}"
+                  values: ["{{ $vv }}"]
+                  operator: In
+                {{- end }}
+                {{- end }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - key: {{ .Values.tolerations.key | quote }}
+          operator: {{ .Values.tolerations.operator | quote }}
+          value: {{ .Values.tolerations.value | quote }}
+          effect: {{ .Values.tolerations.effect | quote }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.name | quote }}
+          image: "{{ .Values.image.registryURL }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: Always
+          resources:
+{{ toYaml .Values.pod.resources | indent 12 }}
+          ports:
+            - name: {{ .Values.pod.containerPortName }}
+              containerPort: {{ .Values.pod.containerPort }}
+              protocol: TCP
+          {{- /* //FIXME Refactor to not rely on volumeAzure var at all volume is enabled */}}
+          {{- if .Values.volumeAzure.enabled }}
+          volumeMounts:
+            - mountPath: {{ .Values.volumeMount.path | quote }}
+              name: {{ .Values.name }}-azurefile
+              readOnly: {{ .Values.volumeMount.readOnly }}
+          {{- end }}
+          {{- if and .Values.volumeMount.enabled .Values.volumeMount.path }}
+          volumeMounts:
+            - mountPath: {{ .Values.volumeMount.path | quote }}
+              name: {{ .Values.name | quote }}
+              readOnly: {{ .Values.volumeMount.readOnly }}
+          {{- end }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - mountPath: {{ .Values.persistence.mountPath }}
+              name: {{ .Values.name }}-volume
+          {{- end }}
+          env:
+          {{- include "common.environment" . | nindent 12 }}
+          {{- if .Values.deployment.env }}
+            {{- range $k, $v := .Values.deployment.env }}
+            {{- range $kk, $vv := $v }}
+            - name: "{{ $kk }}"
+              value: "{{ $vv }}"
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.deployment.env_fieldref }}
+            {{- range $k, $v := .Values.deployment.env_fieldref }}
+            {{- range $kk, $vv := $v }}
+            - name: "{{ $kk }}"
+              valueFrom:
+                fieldRef:
+                  fieldPath: "{{ $vv }}"
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if and .Values.secret.enabled .Values.secret.data }}
+            {{- range $k, $v := .Values.secret.data }}
+            {{- range $kk, $vv := $v }}
+            - name: "{{ $kk }}"
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ $.Values.name }}-secret"
+                  key: "{{ $kk }}"
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if and .Values.configmap.enabled .Values.configmap.data }}
+            {{- range $k, $v := .Values.configmap.data }}
+            {{- range $kk, $vv := $v }}
+            - name: "{{ $kk }}"
+              valueFrom:
+                configMapKeyRef:
+                  name: "{{ $.Values.name }}"
+                  key: "{{ $kk }}"
+            {{- end }}
+            {{- end }}
+          {{- end }}
+{{- if and (eq .Values.liveness.http "enabled") (eq .Values.liveness.tcp "disabled") }}
+          livenessProbe:
+{{ toYaml .Values.liveness.lhprobe | indent 12 }}
+          readinessProbe:
+{{ toYaml .Values.liveness.rhprobe | indent 12 }}
+{{- else if and (eq .Values.liveness.tcp "enabled") (eq .Values.liveness.http "disabled") }}
+          livenessProbe:
+{{ toYaml .Values.liveness.ltprobe | indent 12 }}
+          readinessProbe:
+{{ toYaml .Values.liveness.rtprobe | indent 12 }}
+{{- end }}
+      {{- /* //FIXME should me merged with .Values.volumeMount.enabled */}}
+      {{- if .Values.volumeAzure.enabled }}
+      volumes:
+        - name: {{ .Values.name }}-azurefile
+          azureFile:
+            secretName: {{.Values.name }}-secret
+            shareName: {{ .Values.volume.name | quote }}
+            readOnly: {{ .Values.volumeMount.readOnly }}
+      {{- end }}
+      {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+      volumes:
+        - name: {{ .Values.name }}-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.name }}-volume
+      {{- end }}
+      {{- if and .Values.volumeMount.enabled .Values.volumeMount.path}}
+      volumes:
+        - name: {{ .Values.name | quote }}
+          {{- if and .Values.volumeMount.enabled .Values.volumeMount.secret }}
+          secret:
+            secretName: {{ .Values.name }}-secret-mount
+          {{- end }}
+      {{- end }}
+{{- end }}
